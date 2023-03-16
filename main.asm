@@ -66,6 +66,24 @@ t1 DB 'op1', 0Dh, 0Ah, '$'
 ; ------------------------------------------------
 t2 DB 'op2', 0Dh, 0Ah, '$'
 
+; ------------------------------------------------
+; Variables para la option_2 de inicio de juego
+; ------------------------------------------------
+errorMenu DB 'Opcion no valida', 0Dh, 0Ah, '$'
+
+
+; ------------------------------------------------
+; Creamos las variables para el tablero
+; ------------------------------------------------
+table DB 10 DUP(0)
+Wchar DB 57h
+Bchar DB 42h
+; ------------------------------------------------
+; Variables para la creación del .htm del estado del juego
+; ------------------------------------------------
+filename DB 'estado.htm', '$'
+conent DB '', '$'
+
 ; Iniciamos el bloque de código
 .CODE
 start:
@@ -100,13 +118,14 @@ jmp menu                ; Si no es ninguna de las opciones, volvemos a imprimir 
 
 
 option_3:               ; Colocamos la salida del programa
+printMsg errorMenu      ; Imprimimos el mensaje de error
 jmp exit                ; Llamamos a la rutina de salida
 
 option_1:               ; Llamamos a la rutina de inicio de juego
 printMsg t1
 jmp exit
 
-option_2:               ; Llamamos a la rutina de inicio de juego
+option_2:               ; Llamamos a la rutina de carga de juego
 printMsg t2
 jmp exit
 
