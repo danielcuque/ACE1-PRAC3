@@ -11,9 +11,9 @@
 ; la cadena en el registro DX, y finalmente llama a la interrupción 21h para imprimir la cadena.
 ; ------------------------------------------------
 printMsg macro str
-              mov ah, 09h            ; imprimir cadena
-              lea dx, str     ; dx = offset de la cadena
-              int 21h                ; imprimir cadena
+            mov dx, offset str ; dx = offset de la cadena
+            mov ah, 09h        ; imprimir cadena
+            int 21h            ; imprimir cadena
 endm
 
 ; ------------------------------------------------
@@ -24,11 +24,9 @@ endm
 ; y finalmente llama a la interrupción 21h para imprimir el carácter.
 ; ------------------------------------------------
 printAscii macro ascii
-                mov ax, @data     ; ax = offset de la cadena
-                mov ds, ax        ; ds = segmento de la cadena
-                mov ah, 02h       ; imprimir caracter
-                mov dl, ascii     ; dx = offset de la cadena
-                int 21h           ; imprimir cadena
+            mov dx, offset ascii ; dx = offset del caracter
+            mov ah, 02h          ; imprimir caracter
+            int 21h              ; imprimir caracter
 endm
 
 ; Configuración del programa
@@ -44,9 +42,11 @@ infoMsg DB 'Universidad de San Carlos de Guatemala', 0Dh, 0Ah,'Facultad de Ingen
 menuMessage DB 'Menu:', 0Dh, 0Ah,'1. Iniciar', 0Dh, 0Ah,'2. Cargar partida', 0Dh, 0Ah,'3. Salir', 0Dh, 0Ah, '$'
 
 ; ------------------------------------------------
-; Variables para la option_1 de inicio de juego
+; Variables para la start_game de inicio de juego
 ; ------------------------------------------------
-t1 DB 'op1', 0Dh, 0Ah, '$'
+turnMsg DB 'Realizando sorteo aleatorio', 0Dh, 0Ah, '$'
+turnDoneMsg DB 'Sorteo realizado', 0Dh, 0Ah, '$'
+turnPlayerMsg DB 'Turno del jugador', 0Dh, 0Ah, '$'
 
 ; ------------------------------------------------
 ; Variables para la option_2 de inicio de juego
@@ -57,14 +57,18 @@ t2 DB 'op2', 0Dh, 0Ah, '$'
 ; Variables para la option_2 de inicio de juego
 ; ------------------------------------------------
 
-
-
+; ------------------------------------------------
+; Creamos las variables para el el sorteo del juego
+; ------------------------------------------------
+playerTurn DB ? ; Variable para el turno del jugador
 ; ------------------------------------------------
 ; Creamos las variables para el tablero
 ; ------------------------------------------------
-table DB 10 DUP(0)
+table DB 81 DUP(0)
 Wchar DB 57h
 Bchar DB 42h
+colTableStr DB '        A      B       C       D       E       F       G       H', 0Dh, 0Ah, '$'
+lineTableStr DB '    +---+---+---+---+---+---+---+---+---+---+', 0Dh, 0Ah, '$'
 ; ------------------------------------------------
 ; Variables para la creación del .htm del estado del juego
 ; ------------------------------------------------
@@ -86,50 +90,76 @@ main PROC
 mov ax, @data
 mov ds, ax
 
-mov ah, 09h             ; Imprimimos la información de inicio
-lea dx, infoMsg
-int 21h
+printMsg infoMsg ; Imprimimos la información del programa
 
-wait_enter:             ; Creamos un label para la espera de ENTER
-mov ah, 08h             ; Esperamos a que se presione ENTER
-int 21h
-cmp al, 0Dh             ; 0Dh es el código ASCII de ENTER
-jne wait_enter          ; Si no es ENTER, volvemos a esperar
-
-menu:                   ; Creamos un label para el menú
-
-printMsg menuMessage    ; Imprimimos el menú
-
-mov ah, 00h             ; Si no es ninguna de las opciones, volvemos a imprimir el menú
-int 16h
-
-cmp al, 31              ; 31 es el código ASCII de 1
-je option_1             ; Si es 1, saltamos a la opción 1
-cmp al, 32              ; 32 es el código ASCII de 2
-je option_2             ; Si es 2, saltamos a la opción 2
-cmp al, 33              ; 33 es el código ASCII de 3
-je option_3             ; Si es 3, saltamos a la opción 3
-
-jmp menu                ; Si no es ninguna de las opciones, volvemos a imprimir el menú
+; Imprimimos el menu principal
+mainMenu:
+printMsg menuMessage ; Imprimimos el menú principal
+mov AH, 08h ; Cargamos a AH el código de interrupción para leer un caracter
+int 21 ; Llamamos a la interrupción
+cmp AL, 31 ; Comparamos el caracter leído con el código ASCII de 1
+je start_game ; Si se presiona 1 entonces se llama a la función option_1
+cmp AL, 32 ; Comparamos el caracter leído con el código ASCII de 2
+je upload_game ; Si se presiona 2 entonces se llama a la función option_2
+cmp AL, 33 ; Comparamos el caracter leído con el código ASCII de 3
+je exit ; Si se presiona 3 entonces se llama a la función option_3
+jmp mainMenu ; Si se presiona cualquier otra tecla entonces se vuelve a imprimir el menú principal
 
 
-option_3:               ; Colocamos la salida del programa
-printMsg exitMsg        ; Imprimimos el mensaje de error
-jmp exit                ; Llamamos a la rutina de salida
+wait_enter: ; Esperamos a que se presione ENTER para continuar
+            mov AH, 08h ; Cargamos a AH el código de interrupción para leer un caracter
+            int 21 ; Llamamos a la interrupción
+            cmp AL, 0Dh ; Comparamos el caracter leído con el código ASCII de ENTER
+            jne wait_enter ; Con jne nos aseguramos que sea condicional, es decir, si no se presiona ENTER entonces
+                           ; se vuelve a llamar a la interrupción para leer un caracter
+                           ; Si se presiona ENTER entonces se continua con el programa
+            ret ; Retornamos a la función main
 
-option_1:               ; Llamamos a la rutina de inicio de juego
-printMsg t1
-jmp exit
+start_game: ; Función para iniciar el juego
+printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
+call random ; Llamamos a la función random para hacer el sorteo
+printMsg turnDoneMsg ; Imprimimos el turno del jugador
+printMsg turnPlayerMsg ; Imprimimos el turno del jugador
+printMsg playerTurn ; Imprimimos el turno del jugador
 
-option_2:               ; Llamamos a la rutina de carga de juego
-printMsg t2
-jmp exit
+upload_game:
+printMsg t2 ;; Esta funcion servira para cargar una partida guardada
 
-exit:
-mov ah, 4Ch
-int 21h
+
+print_table: ;; Funcion para mostrar el tablero
+;; Lo primero que hacemos es mostrar las columnas
+printMsg colTableStr ; Imprimimos las columnas
+
+;; Creamos una subrutina para generar numeros aleatorios entre el 0 y 1 tomando las milesimas de segundo del sistema
+
+generate_random_number:
+mov AH, 2Ch ; Cargamos a AH el codigo de interrupción para obtener el tiempo del sistema
+int 21h ; Llamamos a la interrupción
+
+mov AL, Dl ; Cargamos a AL el valor de las milesimas de segundo
+and AL, 1 ; Aplicamos un AND con 1 para obtener el valor de las milesimas de segundo
+
+cmp AL, 0 ; Comparamos el valor de AL con 0
+je set_player_A ; Si el valor de AL es 0 entonces se llama a la función set_player_A
+jmp set_player_B ; Si el valor de AL es 1 entonces se llama a la función set_player_B
+
+
+;; Con esta subrutina, indicamos que el jugador A es el que inicia el juego
+set_player_A:
+mov playerTurn, 'A' ; Cargamos a playerTurn el valor de A
+ret ; Retornamos a la función generate_random_number
+
+;; Con esta subrutina, indicamos que el jugador B es el que inicia el juego
+set_player_B:
+mov playerTurn, 'B' ; Cargamos a playerTurn el valor de B
+ret ; Retornamos a la función generate_random_number
+
+exit: 
+printMsg exitMsg ; Imprimimos el mensaje de salida
+mov AH, 4Ch ; Cargamos a AH el codigo DOS para interrumpir el programa
+int 21h ; Llamamos a la interrupción
+;; El 4Ch sirve para terminar el programa
+
 
 main ENDP
 END start
-
-
