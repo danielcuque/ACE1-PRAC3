@@ -11,8 +11,6 @@
 ; la cadena en el registro DX, y finalmente llama a la interrupción 21h para imprimir la cadena.
 ; ------------------------------------------------
 printMsg macro str
-              mov ax, @data          ; ax = offset de la cadena
-              mov ds, ax             ; ds = segmento de la cadena
               mov ah, 09h            ; imprimir cadena
               lea dx, str     ; dx = offset de la cadena
               int 21h                ; imprimir cadena
@@ -40,21 +38,10 @@ endm
 .DATA
 
 ; Creamos la información de incio, seguido de la espera de ENTER para pasar al menú
-infoMsg DB 'Universidad de San Carlos de Guatemala', 0Dh, 0Ah,
-     'Facultad de Ingenieria', 0Dh, 0Ah,
-     'Escuela de Ciencias y Sistemas', 0Dh, 0Ah,
-     'Arquitectura de computadores y ensambladores 1', 0Dh, 0Ah,
-     'Seccion B', 0Dh, 0Ah,
-     'Daniel Estuardo Cuque Ruiz' , 0Dh, 0Ah,
-     '202112145' , 0Dh, 0Ah,
-     0Dh, 0Ah,
-     'ENTER para continuar' , 0Dh, 0Ah, '$'
+infoMsg DB 'Universidad de San Carlos de Guatemala', 0Dh, 0Ah,'Facultad de Ingenieria', 0Dh, 0Ah,'Escuela de Ciencias y Sistemas', 0Dh, 0Ah,'Arquitectura de computadores y ensambladores 1', 0Dh, 0Ah,'Seccion B', 0Dh, 0Ah,'Daniel Estuardo Cuque Ruiz' , 0Dh, 0Ah,'202112145' , 0Dh, 0Ah,0Dh, 0Ah,'ENTER para continuar' , 0Dh, 0Ah, '$'
 
 ; Creamos la información del menú
-menuMessage DB 'Menu:', 0Dh, 0Ah,
-     '1. Iniciar', 0Dh, 0Ah,
-     '2. Cargar partida', 0Dh, 0Ah,
-     '3. Salir', 0Dh, 0Ah, '$'
+menuMessage DB 'Menu:', 0Dh, 0Ah,'1. Iniciar', 0Dh, 0Ah,'2. Cargar partida', 0Dh, 0Ah,'3. Salir', 0Dh, 0Ah, '$'
 
 ; ------------------------------------------------
 ; Variables para la option_1 de inicio de juego
@@ -103,8 +90,11 @@ mov ah, 09h             ; Imprimimos la información de inicio
 lea dx, infoMsg
 int 21h
 
+wait_enter:             ; Creamos un label para la espera de ENTER
 mov ah, 08h             ; Esperamos a que se presione ENTER
 int 21h
+cmp al, 0Dh             ; 0Dh es el código ASCII de ENTER
+jne wait_enter          ; Si no es ENTER, volvemos a esperar
 
 menu:                   ; Creamos un label para el menú
 
