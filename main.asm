@@ -117,21 +117,13 @@ wait_enter: ; Esperamos a que se presione ENTER para continuar
 
 start_game: ; Función para iniciar el juego
 printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
-call random ; Llamamos a la función random para hacer el sorteo
-printMsg turnDoneMsg ; Imprimimos el turno del jugador
-printMsg turnPlayerMsg ; Imprimimos el turno del jugador
-printMsg playerTurn ; Imprimimos el turno del jugador
+jmp generate_random_number ; Llamamos a la función para generar un número aleatorio
 
 upload_game:
 printMsg t2 ;; Esta funcion servira para cargar una partida guardada
 
 
-print_table: ;; Funcion para mostrar el tablero
-;; Lo primero que hacemos es mostrar las columnas
-printMsg colTableStr ; Imprimimos las columnas
-
 ;; Creamos una subrutina para generar numeros aleatorios entre el 0 y 1 tomando las milesimas de segundo del sistema
-
 generate_random_number:
 mov AH, 2Ch ; Cargamos a AH el codigo de interrupción para obtener el tiempo del sistema
 int 21h ; Llamamos a la interrupción
@@ -139,20 +131,49 @@ int 21h ; Llamamos a la interrupción
 mov AL, Dl ; Cargamos a AL el valor de las milesimas de segundo
 and AL, 1 ; Aplicamos un AND con 1 para obtener el valor de las milesimas de segundo
 
+;; Comparamos los valores de AL con 0 y 1 para determinar el jugador que inicia el juego
 cmp AL, 0 ; Comparamos el valor de AL con 0
-je set_player_A ; Si el valor de AL es 0 entonces se llama a la función set_player_A
-jmp set_player_B ; Si el valor de AL es 1 entonces se llama a la función set_player_B
+je set_player_A ;; Si es 0, seteamos el jugador A
+
+cmp AL, 1 ; Comparamos el valor de AL con 1
+je set_player_B ;; Si es 1, seteamos el jugador B
 
 
 ;; Con esta subrutina, indicamos que el jugador A es el que inicia el juego
 set_player_A:
-mov playerTurn, 'A' ; Cargamos a playerTurn el valor de A
-ret ; Retornamos a la función generate_random_number
+mov [playerTurn], AL ;; Cargamos a playerTurn el valor de AL
+;; Iniciamos la secuencia de impresión del tablero
+printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
+printMsg turnPlayerMsg ; Imprimimos el mensaje de que es el turno del jugador
+;; Imprimimos el valor del registro de turno del jugador
+mov AH, 02h ; Cargamos a AH el codigo de interrupción para imprimir un caracter
+mov DL, 30H ; Cargamos a DL el valor de playerTurn
 
-;; Con esta subrutina, indicamos que el jugador B es el que inicia el juego
+int 21h ; Llamamos a la interrupción
+
+jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
+
 set_player_B:
-mov playerTurn, 'B' ; Cargamos a playerTurn el valor de B
-ret ; Retornamos a la función generate_random_number
+mov [playerTurn], AL ;; Cargamos a playerTurn el valor de AL
+;; Iniciamos la secuencia de impresión del tablero
+printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
+printMsg turnPlayerMsg ; Imprimimos el mensaje de que es el turno del jugador
+;; Imprimimos el valor del registro de turno del jugador
+mov AH, 02h ; Cargamos a AH el codigo de interrupción para imprimir un caracter
+mov DL, 31H ; Cargamos a DL el valor de playerTurn
+
+int 21h ; Llamamos a la interrupción
+
+jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
+
+
+;; Iniciamos la secuencia de impresión del tablero
+start_sequence:
+printMsg colTableStr ; Imprimimos la primera linea del tablero
+printMsg lineTableStr ; Imprimimos la segunda linea del tablero
+
+
+
 
 exit: 
 printMsg exitMsg ; Imprimimos el mensaje de salida
