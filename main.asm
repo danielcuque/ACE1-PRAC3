@@ -33,6 +33,8 @@ endm
 .MODEL small
 .STACK
 .RADIX 16 ; para que los números se muestren en hexadecimal
+dimension EQU 09 ; Tamaño del tablero
+optionLong EQU 20 ; Tamaño de la opción del menú
 .DATA
 
 ; Creamos la información de incio, seguido de la espera de ENTER para pasar al menú
@@ -46,7 +48,8 @@ menuMessage DB 'Menu:', 0Dh, 0Ah,'1. Iniciar', 0Dh, 0Ah,'2. Cargar partida', 0Dh
 ; ------------------------------------------------
 turnMsg DB 'Realizando sorteo aleatorio', 0Dh, 0Ah, '$'
 turnDoneMsg DB 'Sorteo realizado', 0Dh, 0Ah, '$'
-turnPlayerMsg DB 'Turno del jugador', 0Dh, 0Ah, '$'
+turnPlayerAMsg DB 'Turno del jugador A', 0Dh, 0Ah, '$'
+turnPlayerBMsg DB 'Turno del jugador B', 0Dh, 0Ah, '$'
 
 ; ------------------------------------------------
 ; Variables para la option_2 de inicio de juego
@@ -60,15 +63,17 @@ t2 DB 'op2', 0Dh, 0Ah, '$'
 ; ------------------------------------------------
 ; Creamos las variables para el el sorteo del juego
 ; ------------------------------------------------
-playerTurn DB ? ; Variable para el turno del jugador
+
+playerTurn DB ?
+
 ; ------------------------------------------------
 ; Creamos las variables para el tablero
 ; ------------------------------------------------
-table DB 81 DUP(0)
-Wchar DB 57h
-Bchar DB 42h
-colTableStr DB '        A      B       C       D       E       F       G       H', 0Dh, 0Ah, '$'
-lineTableStr DB '    +---+---+---+---+---+---+---+---+---+---+', 0Dh, 0Ah, '$'
+table DB 81 DUP(0) ; 81 = 9x9
+colTableStr DB '       1   2   3   4   5   6   7   8   9   ', 0Dh, 0Ah, '$'
+lineTableStr DB '     +---+---+---+---+---+---+---+---+---+', 0Dh, 0Ah, '$'
+nameLine DB '   @ |', '$'
+cellTable DB '   |', '$'
 ; ------------------------------------------------
 ; Variables para la creación del .htm del estado del juego
 ; ------------------------------------------------
@@ -80,6 +85,8 @@ filename DB 'estado.htm', '$'
 ; ------------------------------------------------
 errorMsg DB 'Opcion no valida', 0Dh, 0Ah, '$'
 exitMsg DB 'Cerrando programa ...', 0Dh, 0Ah, '$'
+newLine DB 0Dh, 0Ah, '$'
+bufferKeyBoard DB 258 dup(0ff) ; 258 = 256 + 2
 
 ; Iniciamos el bloque de código
 .CODE
@@ -122,6 +129,7 @@ jmp generate_random_number ; Llamamos a la función para generar un número alea
 upload_game:
 printMsg t2 ;; Esta funcion servira para cargar una partida guardada
 
+jmp exit ;; Esta funcion servira para salir del juego
 
 ;; Creamos una subrutina para generar numeros aleatorios entre el 0 y 1 tomando las milesimas de segundo del sistema
 generate_random_number:
@@ -144,12 +152,9 @@ set_player_A:
 mov [playerTurn], AL ;; Cargamos a playerTurn el valor de AL
 ;; Iniciamos la secuencia de impresión del tablero
 printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
-printMsg turnPlayerMsg ; Imprimimos el mensaje de que es el turno del jugador
-;; Imprimimos el valor del registro de turno del jugador
-mov AH, 02h ; Cargamos a AH el codigo de interrupción para imprimir un caracter
-mov DL, 30H ; Cargamos a DL el valor de playerTurn
 
-int 21h ; Llamamos a la interrupción
+;; Imprimimos el valor del registro de turno del jugador
+printMsg turnPlayerAMsg ; Imprimimos el mensaje de que es el turno del jugador A
 
 jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
 
@@ -157,12 +162,9 @@ set_player_B:
 mov [playerTurn], AL ;; Cargamos a playerTurn el valor de AL
 ;; Iniciamos la secuencia de impresión del tablero
 printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
-printMsg turnPlayerMsg ; Imprimimos el mensaje de que es el turno del jugador
-;; Imprimimos el valor del registro de turno del jugador
-mov AH, 02h ; Cargamos a AH el codigo de interrupción para imprimir un caracter
-mov DL, 31H ; Cargamos a DL el valor de playerTurn
 
-int 21h ; Llamamos a la interrupción
+;; Imprimimos el valor del registro de turno del jugador
+printMsg turnPlayerBMsg ; Imprimimos el mensaje de que es el turno del jugador B
 
 jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
 
@@ -171,6 +173,79 @@ jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresi
 start_sequence:
 printMsg colTableStr ; Imprimimos la primera linea del tablero
 printMsg lineTableStr ; Imprimimos la segunda linea del tablero
+mov DI, 00 ; Cargamos a DI el valor 00
+mov CX, dimension ; Cargamos a CX el valor de la dimension del tablero
+
+;; Imprimimos las filas del tablero
+;; Es importante tomar en cuenta que usamos el ascii de @ para que al sumar en 1 el valor de DI
+;; podamos ir imprimiendo A B C D, etc, ya que son contiguos en el ascii
+
+printTableRows:
+mov BX, offset nameLine ; Cargamos a BX la dirección de memoria de la variable nameLine
+add BX, 03 ; Sumamos 3 a BX para que apunte a la posición de la letra que corresponde
+mov AL, [BX] ; Cargamos a AL el valor de la posición de memoria de BX
+inc AL ; Sumamos 1 a AL para que apunte a la siguiente letra
+mov [BX], AL ; Cargamos a la posición de memoria de BX el valor de AL
+sub BX, 03 ; Restamos 3 a BX para que apunte a la posición de la letra que corresponde
+mov DX, BX ; Cargamos a DB el valor de BX
+mov AH, 09h ; Cargamos a AH el código de interrupción para imprimir un string
+int 21h ; Llamamos a la interrupción
+mov SI, CX ; Cargamos a SI el valor de CX
+mov CX, dimension ; Cargamos a CX el valor de la dimension del tablero
+
+printCell: 
+mov AL, [table + DI]
+int 03
+mov BX, offset cellTable
+inc BX
+cmp AL, 00
+je printEmptyCell
+cmp AL, 01
+je printPlayerACell
+
+printPlayerBCell:
+mov AL, 42
+mov [BX], AL
+dec BX
+jmp readyCell
+
+printEmptyCell:
+dec BX
+jmp readyCell
+
+printPlayerACell:
+mov AL, 41 ;; Cargamos a AL el valor de la letra A
+mov [BX], AL ;; Cargamos a la posición de memoria de BX el valor de AL
+dec BX ;; Restamos 1 a BX para que apunte a la posición de la letra que corresponde
+
+readyCell:
+mov DX, BX
+mov AH, 09h ; Cargamos a AH el código de interrupción para imprimir un string
+int 21
+inc BX
+mov AL, 20 ; Cargamos a AL el valor de un espacio en blanco
+mov [BX], AL ; Cargamos a la posición de memoria de BX el valor de AL
+dec BX ; Restamos 1 a BX para que apunte a la posición de la letra que corresponde
+inc DI ; Sumamos 1 a DI para que apunte a la siguiente posición de memoria
+loop printCell ; Vamos a la siguiente fila del tablero
+mov DX, offset newLine 
+mov AH, 09
+int 21
+mov DX, offset lineTableStr
+mov AH, 09
+int 21
+mov CX, Si ; Cargamos a CX el valor de Si
+loop printTableRows
+mov AL, 40
+mov BX, offset nameLine
+add BX , 03
+mov [BX], AL
+mov AH, 01
+mov AL, [playerTurn]
+sub AH, AL
+mov [playerTurn], AH
+ret
+
 
 
 
