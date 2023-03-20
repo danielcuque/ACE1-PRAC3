@@ -369,21 +369,22 @@ mov [table + 01], 02
 mov [table + 02], 02
 mov [table + 03], 02
 mov [table + 09], 02
-mov [table + 10], 02
-mov [table + 11], 02
-mov [table + 18], 02
-mov [table + 19], 02
-mov [table + 27], 02
+mov [table + 0A], 02
+mov [table + 0B], 02
+mov [table + 12], 02
+mov [table + 13], 02
+mov [table + 1B], 02
 
-mov [table + 53], 01
-mov [table + 61], 01
-mov [table + 62], 01
-mov [table + 69], 01
-mov [table + 70], 01
-mov [table + 71], 01
-mov [table + 77], 01
-mov [table + 78], 01
-mov [table + 79], 01
+mov [table + 35], 01
+mov [table + 3D], 01
+mov [table + 3E], 01
+mov [table + 45], 01
+mov [table + 46], 01
+mov [table + 47], 01
+mov [table + 4D], 01
+mov [table + 4E], 01
+mov [table + 4F], 01
+mov [table + 50], 01
 ret
 
 errorPosition: mov DL, 00
