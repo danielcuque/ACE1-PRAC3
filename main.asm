@@ -16,18 +16,6 @@ printMsg macro str
             int 21h            ; imprimir cadena
 endm
 
-; ------------------------------------------------
-; Imprimir un caracter ascii
-; esta macro se encarga de imprimir un carácter ASCII en la pantalla. Para ello, primero carga la dirección de inicio 
-; de la sección de datos en el registro AX y luego la carga en el registro DS, lo que permite acceder a la memoria de 
-; la cadena. Luego, carga el carácter de impresión de carácter en el registro AH y el carácter ASCII en el registro DL, 
-; y finalmente llama a la interrupción 21h para imprimir el carácter.
-; ------------------------------------------------
-printAscii macro ascii
-            mov dx, offset ascii ; dx = offset del caracter
-            mov ah, 02h          ; imprimir caracter
-            int 21h              ; imprimir caracter
-endm
 
 ; Configuración del programa
 .MODEL small
@@ -127,11 +115,15 @@ wait_enter: ; Esperamos a que se presione ENTER para continuar
 start_game: ; Función para iniciar el juego
 printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
 call generate_random_number ; Llamamos a la función para generar un número aleatorio
+jmp mainMenu ; Llamamos a la función para imprimir el menú principal
 
 upload_game:
 printMsg t2 ;; Esta funcion servira para cargar una partida guardada
 
 jmp exit ;; Esta funcion servira para salir del juego
+
+;;;; Esta seccion sera para subrutinas y asi no traslapar el codigo
+;;;; Por eso cuando pase a la opt 2, se va a exit para poder salir del programa
 
 ;; Creamos una subrutina para generar numeros aleatorios entre el 0 y 1 tomando las milesimas de segundo del sistema
 generate_random_number:
@@ -157,7 +149,7 @@ printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 
 ;; Imprimimos el valor del registro de turno del jugador
 printMsg turnPlayerAMsg ; Imprimimos el mensaje de que es el turno del jugador A
-
+call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
 
 set_player_B:
@@ -168,7 +160,7 @@ printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 ;; Imprimimos el valor del registro de turno del jugador
 printMsg turnPlayerBMsg ; Imprimimos el mensaje de que es el turno del jugador B
 
-
+call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 ;; Iniciamos la secuencia de impresión del tablero
 start_sequence:
 printMsg colTableStr ; Imprimimos la primera linea del tablero
@@ -195,7 +187,7 @@ mov CX, dimension ; Cargamos a CX el valor de la dimension del tablero
 
 printCell: 
 mov AL, [table + DI]
-int 03
+int 03h
 mov BX, offset cellTable
 inc BX
 cmp AL, 00
@@ -221,7 +213,7 @@ dec BX ;; Restamos 1 a BX para que apunte a la posición de la letra que corresp
 readyCell:
 mov DX, BX
 mov AH, 09h ; Cargamos a AH el código de interrupción para imprimir un string
-int 21
+int 21h ; Llamamos a la interrupción
 inc BX
 mov AL, 20 ; Cargamos a AL el valor de un espacio en blanco
 mov [BX], AL ; Cargamos a la posición de memoria de BX el valor de AL
@@ -230,10 +222,10 @@ inc DI ; Sumamos 1 a DI para que apunte a la siguiente posición de memoria
 loop printCell ; Vamos a la siguiente fila del tablero
 mov DX, offset newLine 
 mov AH, 09
-int 21
+int 21h
 mov DX, offset lineTableStr
 mov AH, 09
-int 21
+int 21h
 mov CX, Si ; Cargamos a CX el valor de Si
 loop printTableRows
 mov AL, 40
@@ -247,9 +239,11 @@ mov [playerTurn], AH
 ret
 
 
+
 exit: 
 printMsg exitMsg ; Imprimimos el mensaje de salida
 mov AH, 4Ch ; Cargamos a AH el codigo DOS para interrumpir el programa
+mov AL, 00 ; Cargamos a AL el valor 00
 int 21h ; Llamamos a la interrupción
 ;; El 4Ch sirve para terminar el programa
 
