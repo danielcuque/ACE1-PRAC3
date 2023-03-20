@@ -80,7 +80,7 @@ exitMsg DB 'Cerrando programa ...', 0Dh, 0Ah, '$'
 newLine  DB 0A,'$'
 bufferKeyBoard DB 258 dup(0ff) ; 258 = 256 + 2
 pressEnter DB 'Presione ENTER para continuar', 0Dh, 0Ah, '$'
-
+invalidEntry DB 'Entrada invalida', 0Ah, '$'
 debugerStr DB 'debuger', 0Dh, 0Ah, '$'
 
 ; Iniciamos el bloque de código
@@ -268,9 +268,50 @@ mov AL, [playerTurn]
 sub AH, AL
 mov [playerTurn], AH
 ret
+jmp exit
 
-put_B_piece:
-put_W_piece:
+; ------------------------------------------------
+putPieceInTable:
+printMsg newLine
+printMsg positionMsg
+mov DX, offset bufferKeyBoard
+mov AH, 0Ah
+int 21h
+call makePosition
+cmp DL, 00
+je error_position
+mov DL, Ah 
+mov AH, 00
+mov CL, 09
+mul CL
+mov AH, Dl
+add AL, Ah
+mov Bx, 0000
+mov BL, Al
+jmp putPiece
+
+error_position:
+printMsg invalidEntry
+jmp start_sequence
+
+putPiece:
+mov DX, offset table
+add BX, Dx
+mov CH, [playerTurn]
+cmp CH, 00
+je putPieceW
+jmp PutPieceB
+
+; ------------------------------------------------
+putPieceW:
+mov CH, 01
+mov [BX], CH
+ret
+
+PutPieceB:
+mov CH, 02
+mov [BX], CH
+ret
 
 exit: 
 printMsg exitMsg ; Imprimimos el mensaje de salida
@@ -292,17 +333,61 @@ int 21h ; Llamamos a la interrupción
 ;; [0,0,0,0,0,0,W,W,W]
 ;; [0,0,0,0,0,W,W,W,W]
 
-putPieceInTable:
-printMsg newLine
-printMsg positionMsg
-printMsg bufferKeyBoard
+; ------------------------------------------------
+;; Toma los datos del buffer para generar una posición
+;; En Ah esta la posicion de la fila
+;; En Al esta la posicion de la columna
+;; En DL si la entrada no fue valida se toma como Dl = 00
+
+makePosition:
+mov BX, offset bufferKeyBoard
+inc BX
+mov AL, [BX]
+cmp AL, 02
+jne errorPosition
+inc BX
+mov AL, [BX]
+cmp AL, 31
+jl errorPosition
+cmp AL, 39
+jg errorPosition
+sub AL, 31
+mov AH, Al
+inc BX
+mov AL, [BX]
+cmp AL, 41
+jl errorPosition
+cmp AL, 49
+jg errorPosition
+sub AL, 41
+mov DL, 0ff
+ret
 
 fill_initial_table:
-mov BX, offset table ; Cargamos a BX la dirección de memoria de la variable table
+mov [table], 02
+mov [table + 01], 02
+mov [table + 02], 02
+mov [table + 03], 02
+mov [table + 09], 02
+mov [table + 10], 02
+mov [table + 11], 02
+mov [table + 18], 02
+mov [table + 19], 02
+mov [table + 27], 02
 
-ret ;; Retornamos a la subrutina
+mov [table + 53], 01
+mov [table + 61], 01
+mov [table + 62], 01
+mov [table + 69], 01
+mov [table + 70], 01
+mov [table + 71], 01
+mov [table + 77], 01
+mov [table + 78], 01
+mov [table + 79], 01
+ret
 
-
+errorPosition: mov DL, 00
+ret
 
 main ENDP
 END start
