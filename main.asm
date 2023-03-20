@@ -42,13 +42,17 @@ turnWPieceMsg db 'Turno de las piezas blancas', 0Dh, 0Ah, '$'
 turnBPieceMsg db 'Turno de las piezas negras', 0Dh, 0Ah, '$'
 
 ; ------------------------------------------------
-; Variables para la option_2 de inicio de juego
+; Definimos los comandos
 ; ------------------------------------------------
-t2 DB 'op2', 0Dh, 0Ah, '$'
+saveCommand DB 'GUARDAR', '$'
+generatePage DB 'GENERARPAGINA', '$'
+exitCommand DB 'ABANDONAR', '$'
 
 ; ------------------------------------------------
 ; Variables para la option_2 de inicio de juego
 ; ------------------------------------------------
+t2 DB 'op2', 0Dh, 0Ah, '$'
+
 
 ; ------------------------------------------------
 ; Creamos las variables para el el sorteo del juego
@@ -65,7 +69,7 @@ colTableStr DB '       1   2   3   4   5   6   7   8   9   ', 0Dh, 0Ah, '$'
 lineTableStr DB '     +---+---+---+---+---+---+---+---+---+', 0Dh, 0Ah, '$'
 nameLine DB '   @ |', '$'
 cellTable DB '   |', '$'
-positionMsg DB 'Pieza a mover: ', '$'
+positionMsg DB 'Ingrese un comando o posicion: ', '$'
 ; ------------------------------------------------
 ; Variables para la creación del .htm del estado del juego
 ; ------------------------------------------------
@@ -200,6 +204,12 @@ start_sequence:
     printMsg colTableStr ; Imprimimos la primera linea del tablero
     printMsg lineTableStr ; Imprimimos la segunda linea del tablero
     call fill_initial_table ; Llamamos a la función para llenar el tablero con las piezas iniciales
+    call printTable ; Llamamos a la función para imprimir el tablero
+    call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
+    call putPieceInTable ; Solicitamos al usuario que coloque una pieza en el tablero
+    jmp mainMenu
+
+printTable:
     mov DI, 00 ; Cargamos a DI el valor 00
     mov CX, dimension ; Cargamos a CX el valor de la dimension del tablero
 
@@ -268,7 +278,6 @@ mov AL, [playerTurn]
 sub AH, AL
 mov [playerTurn], AH
 ret
-jmp exit
 
 ; ------------------------------------------------
 putPieceInTable:
@@ -277,7 +286,7 @@ printMsg positionMsg
 mov DX, offset bufferKeyBoard
 mov AH, 0Ah
 int 21h
-call makePosition
+call takePositionKeyboard
 cmp DL, 00
 je error_position
 mov DL, Ah 
@@ -339,7 +348,7 @@ int 21h ; Llamamos a la interrupción
 ;; En Al esta la posicion de la columna
 ;; En DL si la entrada no fue valida se toma como Dl = 00
 
-makePosition:
+takePositionKeyboard:
 mov BX, offset bufferKeyBoard
 inc BX
 mov AL, [BX]
@@ -386,6 +395,11 @@ mov [table + 4E], 01
 mov [table + 4F], 01
 mov [table + 50], 01
 ret
+
+;; En esta subrutina vamos a verificar si el tipo de instruccion que mete el usuario es de tipo COMANDO o de tipo POSICION
+getInputKeyboard:
+mov BX, offset bufferKeyBoard
+inc BX
 
 errorPosition: mov DL, 00
 ret
