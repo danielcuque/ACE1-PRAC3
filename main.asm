@@ -26,7 +26,7 @@ optionLong EQU 20 ; Tamaño de la opción del menú
 .DATA
 
 ; Creamos la información de incio, seguido de la espera de ENTER para pasar al menú
-infoMsg DB 'Universidad de San Carlos de Guatemala', 0Dh, 0Ah,'Facultad de Ingenieria', 0Dh, 0Ah,'Escuela de Ciencias y Sistemas', 0Dh, 0Ah,'Arquitectura de computadores y ensambladores 1', 0Dh, 0Ah,'Seccion B', 0Dh, 0Ah,'Daniel Estuardo Cuque Ruiz' , 0Dh, 0Ah,'202112145' , 0Dh, 0Ah,0Dh, 0Ah,'ENTER para continuar' , 0Dh, 0Ah, '$'
+infoMsg DB 'Universidad de San Carlos de Guatemala', 0Dh, 0Ah,'Facultad de Ingenieria', 0Dh, 0Ah,'Escuela de Ciencias y Sistemas', 0Dh, 0Ah,'Arquitectura de computadores y ensambladores 1', 0Dh, 0Ah,'Seccion B', 0Dh, 0Ah,'Daniel Estuardo Cuque Ruiz' , 0Dh, 0Ah,'202112145' , 0Dh, 0Ah, '$'
 
 ; Creamos la información del menú
 menuMessage DB 'Menu:', 0Dh, 0Ah,'1. Iniciar', 0Dh, 0Ah,'2. Cargar partida', 0Dh, 0Ah,'3. Salir', 0Dh, 0Ah, '$'
@@ -38,6 +38,8 @@ turnMsg DB 'Realizando sorteo aleatorio', 0Dh, 0Ah, '$'
 turnDoneMsg DB 'Sorteo realizado', 0Dh, 0Ah, '$'
 turnPlayerAMsg DB 'Turno del jugador A', 0Dh, 0Ah, '$'
 turnPlayerBMsg DB 'Turno del jugador B', 0Dh, 0Ah, '$'
+turnWPieceMsg db 'Turno de las piezas blancas', 0Dh, 0Ah, '$'
+turnBPieceMsg db 'Turno de las piezas negras', 0Dh, 0Ah, '$'
 
 ; ------------------------------------------------
 ; Variables para la option_2 de inicio de juego
@@ -53,15 +55,17 @@ t2 DB 'op2', 0Dh, 0Ah, '$'
 ; ------------------------------------------------
 
 playerTurn DB 0
+pieceTurn DB 0
 
 ; ------------------------------------------------
 ; Creamos las variables para el tablero
 ; ------------------------------------------------
-table DB 81 DUP(0) ; 81 = 9x9
+table DB 81 DUP(0) ; 81 = 9x9 | Los 0 represetan filas vacias, los 1 representan piezas blancas, los 2 representan piezas negras
 colTableStr DB '       1   2   3   4   5   6   7   8   9   ', 0Dh, 0Ah, '$'
 lineTableStr DB '     +---+---+---+---+---+---+---+---+---+', 0Dh, 0Ah, '$'
 nameLine DB '   @ |', '$'
 cellTable DB '   |', '$'
+positionMsg DB 'Pieza a mover: ', '$'
 ; ------------------------------------------------
 ; Variables para la creación del .htm del estado del juego
 ; ------------------------------------------------
@@ -73,8 +77,9 @@ filename DB 'estado.htm', '$'
 ; ------------------------------------------------
 errorMsg DB 'Opcion no valida', 0Dh, 0Ah, '$'
 exitMsg DB 'Cerrando programa ...', 0Dh, 0Ah, '$'
-newLine DB 0Dh, 0Ah, '$'
+newLine  DB 0A,'$'
 bufferKeyBoard DB 258 dup(0ff) ; 258 = 256 + 2
+pressEnter DB 'Presione ENTER para continuar', 0Dh, 0Ah, '$'
 
 debugerStr DB 'debuger', 0Dh, 0Ah, '$'
 
@@ -88,6 +93,7 @@ mov ax, @data
 mov ds, ax
 
 printMsg infoMsg ; Imprimimos la información del programa
+call wait_enter ; Esperamos a que se presione ENTER para continuar
 
 ; Imprimimos el menu principal
 mainMenu:
@@ -104,6 +110,7 @@ jmp mainMenu ; Si se presiona cualquier otra tecla entonces se vuelve a imprimir
 
 
 wait_enter: ; Esperamos a que se presione ENTER para continuar
+            printMsg pressEnter ; Imprimimos el mensaje de espera de ENTER
             mov AH, 08h ; Cargamos a AH el código de interrupción para leer un caracter
             int 21 ; Llamamos a la interrupción
             cmp AL, 0Dh ; Comparamos el caracter leído con el código ASCII de ENTER
@@ -113,25 +120,28 @@ wait_enter: ; Esperamos a que se presione ENTER para continuar
             ret ; Retornamos a la función main
 
 start_game: ; Función para iniciar el juego
-printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
-call generate_random_number ; Llamamos a la función para generar un número aleatorio
-jmp mainMenu ; Llamamos a la función para imprimir el menú principal
+            printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
+            call generate_random_number ; Llamamos a la función para generar un número aleatorio
+            jmp mainMenu ; Llamamos a la función para imprimir el menú principal
 
 upload_game:
 printMsg t2 ;; Esta funcion servira para cargar una partida guardada
 
 jmp exit ;; Esta funcion servira para salir del juego
 
+
 ;;;; Esta seccion sera para subrutinas y asi no traslapar el codigo
 ;;;; Por eso cuando pase a la opt 2, se va a exit para poder salir del programa
-
 ;; Creamos una subrutina para generar numeros aleatorios entre el 0 y 1 tomando las milesimas de segundo del sistema
 generate_random_number:
 mov AH, 2Ch ; Cargamos a AH el codigo de interrupción para obtener el tiempo del sistema
 int 21h ; Llamamos a la interrupción
 
-mov AL, Dl ; Cargamos a AL el valor de las milesimas de segundo
+mov AL, DL ; Cargamos a AL el valor de las milesimas de segundo
 and AL, 1 ; Aplicamos un AND con 1 para obtener el valor de las milesimas de segundo
+
+;; Añadimos el valor de AL a la variable playerTurn
+mov [playerTurn], AL ; Cargamos a playerTurn el valor de AL
 
 ;; Comparamos los valores de AL con 0 y 1 para determinar el jugador que inicia el juego
 cmp AL, 0 ; Comparamos el valor de AL con 0
@@ -140,33 +150,58 @@ je set_player_A ;; Si es 0, seteamos el jugador A
 cmp AL, 1 ; Comparamos el valor de AL con 1
 je set_player_B ;; Si es 1, seteamos el jugador B
 
+; ------------------------------------------------
+generate_piece_random:
+mov AH, 2Ch ; Cargamos a AH el codigo de interrupción para obtener el tiempo del sistema
+int 21h ; Llamamos a la interrupción
+
+mov AL, DL ; Cargamos a AL el valor de las milesimas de segundo
+and AL, 1 ; Aplicamos un AND con 1 para obtener el valor de las milesimas de segundo
+mov [pieceTurn], AL ; Cargamos a pieceTurn el valor de AL
+
+cmp [pieceTurn], 0 ; Comparamos el valor de AL con 0
+je set_piece_B ;; Si es 0, seteamos el jugador A
+
+cmp [pieceTurn], 1 ; Comparamos el valor de AL con 1
+je set_piece_W ;; Si es 1, seteamos el jugador B
+
+set_piece_B:
+printMsg turnBPieceMsg ; Imprimimos el mensaje de que es el turno de las piezas negras
+ret
+
+set_piece_W:
+printMsg turnWPieceMsg ; Imprimimos el mensaje de que es el turno de las piezas blancas
+ret
+; ------------------------------------------------
+
 
 ;; Con esta subrutina, indicamos que el jugador A es el que inicia el juego
 set_player_A:
-mov [playerTurn], AL ;; Cargamos a playerTurn el valor de AL
 ;; Iniciamos la secuencia de impresión del tablero
 printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 
 ;; Imprimimos el valor del registro de turno del jugador
 printMsg turnPlayerAMsg ; Imprimimos el mensaje de que es el turno del jugador A
+call generate_piece_random ; Llamamos a la función para generar un número aleatorio
 call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
 
 set_player_B:
-mov [playerTurn], AL ;; Cargamos a playerTurn el valor de AL
 ;; Iniciamos la secuencia de impresión del tablero
 printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 
 ;; Imprimimos el valor del registro de turno del jugador
 printMsg turnPlayerBMsg ; Imprimimos el mensaje de que es el turno del jugador B
-
+call generate_piece_random ; Llamamos a la función para generar un número aleatorio
 call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 ;; Iniciamos la secuencia de impresión del tablero
+
 start_sequence:
-printMsg colTableStr ; Imprimimos la primera linea del tablero
-printMsg lineTableStr ; Imprimimos la segunda linea del tablero
-mov DI, 00 ; Cargamos a DI el valor 00
-mov CX, dimension ; Cargamos a CX el valor de la dimension del tablero
+    printMsg colTableStr ; Imprimimos la primera linea del tablero
+    printMsg lineTableStr ; Imprimimos la segunda linea del tablero
+    call fill_initial_table ; Llamamos a la función para llenar el tablero con las piezas iniciales
+    mov DI, 00 ; Cargamos a DI el valor 00
+    mov CX, dimension ; Cargamos a CX el valor de la dimension del tablero
 
 ;; Imprimimos las filas del tablero
 ;; Es importante tomar en cuenta que usamos el ascii de @ para que al sumar en 1 el valor de DI
@@ -193,7 +228,7 @@ inc BX
 cmp AL, 00
 je printEmptyCell
 cmp AL, 01
-je printPlayerACell
+je printPlayerWCell
 
 printPlayerBCell:
 mov AL, 42
@@ -205,8 +240,8 @@ printEmptyCell:
 dec BX
 jmp readyCell
 
-printPlayerACell:
-mov AL, 41 ;; Cargamos a AL el valor de la letra A
+printPlayerWCell:
+mov AL, 57 ;; Cargamos a AL el valor de la letra A
 mov [BX], AL ;; Cargamos a la posición de memoria de BX el valor de AL
 dec BX ;; Restamos 1 a BX para que apunte a la posición de la letra que corresponde
 
@@ -220,12 +255,8 @@ mov [BX], AL ; Cargamos a la posición de memoria de BX el valor de AL
 dec BX ; Restamos 1 a BX para que apunte a la posición de la letra que corresponde
 inc DI ; Sumamos 1 a DI para que apunte a la siguiente posición de memoria
 loop printCell ; Vamos a la siguiente fila del tablero
-mov DX, offset newLine 
-mov AH, 09
-int 21h
-mov DX, offset lineTableStr
-mov AH, 09
-int 21h
+printMsg newLine ; Imprimimos un salto de linea
+printMsg lineTableStr ; Imprimimos la segunda linea del tablero
 mov CX, Si ; Cargamos a CX el valor de Si
 loop printTableRows
 mov AL, 40
@@ -238,7 +269,8 @@ sub AH, AL
 mov [playerTurn], AH
 ret
 
-
+put_B_piece:
+put_W_piece:
 
 exit: 
 printMsg exitMsg ; Imprimimos el mensaje de salida
@@ -246,6 +278,30 @@ mov AH, 4Ch ; Cargamos a AH el codigo DOS para interrumpir el programa
 mov AL, 00 ; Cargamos a AL el valor 00
 int 21h ; Llamamos a la interrupción
 ;; El 4Ch sirve para terminar el programa
+
+; ------------------------------------------------
+;; Cambiamos los valores de nuestra tabla de juego
+;; para que luzca como el tablero inicial de damas chinas
+;; [B,B,B,B,0,0,0,0,0],
+;; [B,B,B,0,0,0,0,0,0]
+;; [B,B,0,0,0,0,0,0,0]
+;; [B,0,0,0,0,0,0,0,0]
+;; [0,0,0,0,0,0,0,0,0]
+;; [0,0,0,0,0,0,0,0,W]
+;; [0,0,0,0,0,0,0,W,W]
+;; [0,0,0,0,0,0,W,W,W]
+;; [0,0,0,0,0,W,W,W,W]
+
+putPieceInTable:
+printMsg newLine
+printMsg positionMsg
+printMsg bufferKeyBoard
+
+fill_initial_table:
+mov BX, offset table ; Cargamos a BX la dirección de memoria de la variable table
+
+ret ;; Retornamos a la subrutina
+
 
 
 main ENDP
