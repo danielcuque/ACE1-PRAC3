@@ -64,7 +64,7 @@ t2 DB 'op2', 0Dh, 0Ah, '$'
 ; Creamos las variables para el el sorteo del juego
 ; ------------------------------------------------
 
-playerTurn DB ?
+playerTurn DB 0
 
 ; ------------------------------------------------
 ; Creamos las variables para el tablero
@@ -87,6 +87,8 @@ errorMsg DB 'Opcion no valida', 0Dh, 0Ah, '$'
 exitMsg DB 'Cerrando programa ...', 0Dh, 0Ah, '$'
 newLine DB 0Dh, 0Ah, '$'
 bufferKeyBoard DB 258 dup(0ff) ; 258 = 256 + 2
+
+debugerStr DB 'debuger', 0Dh, 0Ah, '$'
 
 ; Iniciamos el bloque de código
 .CODE
@@ -124,7 +126,7 @@ wait_enter: ; Esperamos a que se presione ENTER para continuar
 
 start_game: ; Función para iniciar el juego
 printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
-jmp generate_random_number ; Llamamos a la función para generar un número aleatorio
+call generate_random_number ; Llamamos a la función para generar un número aleatorio
 
 upload_game:
 printMsg t2 ;; Esta funcion servira para cargar una partida guardada
@@ -165,8 +167,6 @@ printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 
 ;; Imprimimos el valor del registro de turno del jugador
 printMsg turnPlayerBMsg ; Imprimimos el mensaje de que es el turno del jugador B
-
-jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
 
 
 ;; Iniciamos la secuencia de impresión del tablero
@@ -245,9 +245,6 @@ mov AL, [playerTurn]
 sub AH, AL
 mov [playerTurn], AH
 ret
-
-
-
 
 
 exit: 
