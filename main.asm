@@ -16,6 +16,12 @@ printMsg macro str
             int 21h            ; imprimir cadena
 endm
 
+macroPrintPiece macro piece
+            printMsg dobleSignoMayor
+            printMsg piece
+            printMsg dobleSignoMenor
+endm
+
 
 ; Configuración del programa
 .MODEL small
@@ -36,10 +42,8 @@ menuMessage DB 'Menu:', 0Dh, 0Ah,'1. Iniciar', 0Dh, 0Ah,'2. Cargar partida', 0Dh
 ; ------------------------------------------------
 turnMsg DB 'Realizando sorteo aleatorio', 0Dh, 0Ah, '$'
 turnDoneMsg DB 'Sorteo realizado', 0Dh, 0Ah, '$'
-turnPlayerAMsg DB 'Turno del jugador A', 0Dh, 0Ah, '$'
-turnPlayerBMsg DB 'Turno del jugador B', 0Dh, 0Ah, '$'
-turnWPieceMsg db 'Turno de las piezas blancas', 0Dh, 0Ah, '$'
-turnBPieceMsg db 'Turno de las piezas negras', 0Dh, 0Ah, '$'
+
+
 
 ; ------------------------------------------------
 ; Definimos los comandos
@@ -57,8 +61,13 @@ t2 DB 'op2', 0Dh, 0Ah, '$'
 ; ------------------------------------------------
 ; Creamos las variables para el el sorteo del juego
 ; ------------------------------------------------
-
+;; 00 = jugador A
+;; 01 = jugador B
 playerTurn DB 0
+
+;; Le asignamos a cada jugador una variable para saber que piezas le corresponden
+;; 0 = piezas blancas
+;; 1 = piezas negras
 pieceTurn DB 0
 
 ; ------------------------------------------------
@@ -69,7 +78,19 @@ colTableStr DB '       1   2   3   4   5   6   7   8   9   ', 0Dh, 0Ah, '$'
 lineTableStr DB '     +---+---+---+---+---+---+---+---+---+', 0Dh, 0Ah, '$'
 nameLine DB '   @ |', '$'
 cellTable DB '   |', '$'
-positionMsg DB 'Ingrese un comando o posicion: ', '$'
+selectPositionToMoveMsg DB 'Pieza a mover: ', '$'
+indicateNewPositionMsg DB 'Destino de la pieza: ', '$'
+
+displayTurn DB 'Turno del jugador ', '$'
+conLaspiezas DB ' con las piezas ', '$'
+dobleSignoMenor DB '<<', '$'
+dobleSignoMayor DB '>>', '$'
+playerA DB '1', '$'
+playerB DB '2',  '$'
+pieceB DB  'W', '$'
+pieceW DB 'B',  '$'
+
+
 ; ------------------------------------------------
 ; Variables para la creación del .htm del estado del juego
 ; ------------------------------------------------
@@ -156,12 +177,15 @@ je set_player_B ;; Si es 1, seteamos el jugador B
 
 ; ------------------------------------------------
 generate_piece_random:
+;; Limpiamos el registro AL
+xor AL, AL ; Aplicamos un XOR con 0 para limpiar el registro AL
 mov AH, 2Ch ; Cargamos a AH el codigo de interrupción para obtener el tiempo del sistema
 int 21h ; Llamamos a la interrupción
 
 mov AL, DL ; Cargamos a AL el valor de las milesimas de segundo
 and AL, 1 ; Aplicamos un AND con 1 para obtener el valor de las milesimas de segundo
 mov [pieceTurn], AL ; Cargamos a pieceTurn el valor de AL
+printMsg conLaspiezas
 
 cmp [pieceTurn], 0 ; Comparamos el valor de AL con 0
 je set_piece_B ;; Si es 0, seteamos el jugador A
@@ -170,11 +194,13 @@ cmp [pieceTurn], 1 ; Comparamos el valor de AL con 1
 je set_piece_W ;; Si es 1, seteamos el jugador B
 
 set_piece_B:
-printMsg turnBPieceMsg ; Imprimimos el mensaje de que es el turno de las piezas negras
+macroPrintPiece pieceB
+printMsg newLine
 ret
 
 set_piece_W:
-printMsg turnWPieceMsg ; Imprimimos el mensaje de que es el turno de las piezas blancas
+macroPrintPiece pieceW
+printMsg newLine
 ret
 ; ------------------------------------------------
 
@@ -185,7 +211,8 @@ set_player_A:
 printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 
 ;; Imprimimos el valor del registro de turno del jugador
-printMsg turnPlayerAMsg ; Imprimimos el mensaje de que es el turno del jugador A
+printMsg displayTurn ; Imprimimos el mensaje de que es el turno del jugador
+printMsg playerA ; Imprimimos el mensaje de que es el turno del jugador A
 call generate_piece_random ; Llamamos a la función para generar un número aleatorio
 call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
@@ -195,7 +222,8 @@ set_player_B:
 printMsg turnDoneMsg ; Imprimimos el mensaje de que el sorteo se ha realizado
 
 ;; Imprimimos el valor del registro de turno del jugador
-printMsg turnPlayerBMsg ; Imprimimos el mensaje de que es el turno del jugador B
+printMsg displayTurn ; Imprimimos el mensaje de que es el turno del jugador
+printMsg playerB ; Imprimimos el mensaje de que es el turno del jugador B
 call generate_piece_random ; Llamamos a la función para generar un número aleatorio
 call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 ;; Iniciamos la secuencia de impresión del tablero
@@ -268,12 +296,12 @@ loop printCell ; Vamos a la siguiente fila del tablero
 printMsg newLine ; Imprimimos un salto de linea
 printMsg lineTableStr ; Imprimimos la segunda linea del tablero
 mov CX, Si ; Cargamos a CX el valor de Si
-loop printTableRows
-mov AL, 40
-mov BX, offset nameLine
-add BX , 03
-mov [BX], AL
-mov AH, 01
+loop printTableRows ;; Vamos a la siguiente fila del tablero
+mov AL, 40 ;; Cargamos a AL el valor de la letra A
+mov BX, offset nameLine ;; Cargamos a BX la dirección de memoria de la variable nameLine
+add BX , 03 ;; Sumamos 3 a BX para que apunte a la posición de la letra que corresponde
+mov [BX], AL ;; Cargamos a la posición de memoria de BX el valor de AL
+mov AH, 01 
 mov AL, [playerTurn]
 sub AH, AL
 mov [playerTurn], AH
@@ -282,7 +310,8 @@ ret
 ; ------------------------------------------------
 putPieceInTable:
 printMsg newLine
-printMsg positionMsg
+call printTurn
+printMsg selectPositionToMoveMsg
 mov DX, offset bufferKeyBoard
 mov AH, 0Ah
 int 21h
@@ -349,27 +378,27 @@ int 21h ; Llamamos a la interrupción
 ;; En DL si la entrada no fue valida se toma como Dl = 00
 
 takePositionKeyboard:
-mov BX, offset bufferKeyBoard
-inc BX
-mov AL, [BX]
-cmp AL, 02
-jne errorPosition
-inc BX
-mov AL, [BX]
-cmp AL, 31
+mov BX, offset bufferKeyBoard ;; Cargamos el buffer de teclado a BX
+inc BX ;; Incrementamos en 1 el registro para que apunte al bit del tamaño de la cadena de caracteres
+mov AL, [BX] ;; Cargamos ese bit a AL
+cmp AL, 02 ;; Si el bit es de tamaño 2, entonces es correcto para asignar una posición
+jne errorPosition ;; De lo contrario mostramos que tira error
+inc BX ;; Incrementamos en 1 para acceder al primer caracter de la cadena, en este caso sería, la columna
+mov AL, [BX] ;; Cargamos el valor de la fila a AL
+cmp AL, 41 ;; Comparamos mediante jl y jg si el valor de la fila es menor o mayor a A e I respectivamente
+jl errorPosition
+cmp AL, 49 ;; numero ascii de I
+jg errorPosition ;; mostramos error si es mayor
+sub AL, 41 ;; Restamos 41 a AL para que el valor de AL sea el numero de la fila
+mov AH, AL ;;  Cargamos a Ah el valor de Al para que quede en la posición de la fila
+inc BX ;; Incrementamos en 1 para acceder al segundo caracter de la cadena, en este caso sería, la fila
+mov AL, [BX] ;; Cargamos el valor de la fila a AL
+cmp AL, 31 ;; Comparamos mediante jl y jg si el valor de la fila es menor o mayor a 1 y 9 respectivamente
 jl errorPosition
 cmp AL, 39
 jg errorPosition
 sub AL, 31
-mov AH, Al
-inc BX
-mov AL, [BX]
-cmp AL, 41
-jl errorPosition
-cmp AL, 49
-jg errorPosition
-sub AL, 41
-mov DL, 0ff
+mov DL, 0ff ;; Cargamos a DL el valor de 0ff para indicar que la entrada fue valida
 ret
 
 fill_initial_table:
@@ -396,10 +425,39 @@ mov [table + 4F], 01
 mov [table + 50], 01
 ret
 
-;; En esta subrutina vamos a verificar si el tipo de instruccion que mete el usuario es de tipo COMANDO o de tipo POSICION
-getInputKeyboard:
-mov BX, offset bufferKeyBoard
-inc BX
+;------------------------------------------------
+printTurn:
+mov AL, [playerTurn]
+cmp AL, 00
+printMsg displayTurn
+je printTurnA
+jmp printTurnB
+
+printTurnA:
+printMsg playerA
+printMsg conLaspiezas
+jmp printPiece
+
+printTurnB:
+printMsg playerB
+printMsg conLaspiezas
+
+printPiece:
+mov AL, [pieceTurn]
+cmp AL, 00
+je printPieceW
+
+printPieceB:
+macroPrintPiece pieceB
+printMsg newLine
+ret
+
+printPieceW:
+macroPrintPiece pieceW
+printMsg newLine
+ret
+
+;; ------------------------------------------------
 
 errorPosition: mov DL, 00
 ret
