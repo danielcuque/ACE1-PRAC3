@@ -43,8 +43,6 @@ menuMessage DB 'Menu:', 0Dh, 0Ah,'1. Iniciar', 0Dh, 0Ah,'2. Cargar partida', 0Dh
 turnMsg DB 'Realizando sorteo aleatorio', 0Dh, 0Ah, '$'
 turnDoneMsg DB 'Sorteo realizado', 0Dh, 0Ah, '$'
 
-
-
 ; ------------------------------------------------
 ; Definimos los comandos
 ; ------------------------------------------------
@@ -56,7 +54,9 @@ exitCommand DB 'ABANDONAR', '$'
 ; Variables para la option_2 de inicio de juego
 ; ------------------------------------------------
 t2 DB 'op2', 0Dh, 0Ah, '$'
-
+fileTableName DB 'table.txt', '$'
+fileCreatedMsg DB 'Archivo creado', 0Dh, 0Ah, '$'
+handle dw 0000
 
 ; ------------------------------------------------
 ; Creamos las variables para el el sorteo del juego
@@ -118,11 +118,13 @@ mov ax, @data
 mov ds, ax
 
 printMsg infoMsg ; Imprimimos la información del programa
+printMsg newLine ; Imprimimos un salto de linea
 call wait_enter ; Esperamos a que se presione ENTER para continuar
 
 ; Imprimimos el menu principal
 mainMenu:
 printMsg menuMessage ; Imprimimos el menú principal
+printMsg newLine ; Imprimimos un salto de línea
 mov AH, 08h ; Cargamos a AH el código de interrupción para leer un caracter
 int 21 ; Llamamos a la interrupción
 cmp AL, 31 ; Comparamos el caracter leído con el código ASCII de 1
@@ -177,8 +179,6 @@ je set_player_B ;; Si es 1, seteamos el jugador B
 
 ; ------------------------------------------------
 generate_piece_random:
-;; Limpiamos el registro AL
-xor AL, AL ; Aplicamos un XOR con 0 para limpiar el registro AL
 mov AH, 2Ch ; Cargamos a AH el codigo de interrupción para obtener el tiempo del sistema
 int 21h ; Llamamos a la interrupción
 
@@ -236,8 +236,10 @@ start_sequence:
     printMsg lineTableStr ; Imprimimos la segunda linea del tablero
     call fill_initial_table ; Llamamos a la función para llenar el tablero con las piezas iniciales
     call printTable ; Llamamos a la función para imprimir el tablero
-    call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
+    call printTurn ;; Imprimimos el turno del jugador 
+    call requestPieceToMove ; Solicitamos al usuario que seleccione una pieza para mover
     call putPieceInTable ; Solicitamos al usuario que coloque una pieza en el tablero
+    call changeTurn ; Cambiamos el turno del jugador
     jmp start_sequence
 
 printTable:
@@ -304,8 +306,10 @@ mov AL, 40 ;; Cargamos a AL el valor de la letra A
 mov BX, offset nameLine ;; Cargamos a BX la dirección de memoria de la variable nameLine
 add BX , 03 ;; Sumamos 3 a BX para que apunte a la posición de la letra que corresponde
 mov [BX], AL ;; Cargamos a la posición de memoria de BX el valor de AL
-;; En esta seccion cambiamos el turno de 0 a 1 o de 1 a 0
+ret
 
+;;; Para esta seccion, cambiamos el valor de la variable playerTurn para indicar que el jugador B es el que inicia el juego
+changeTurn:
 ;; ----------------------------------------------------------------
 mov AH, 01 
 mov AL, [playerTurn]
@@ -318,33 +322,37 @@ mov CH, 01
 mov CL, [pieceTurn]
 sub CH, CL
 mov [pieceTurn], CH
-;; ----------------------------------------------------------------
 ret
+;; ----------------------------------------------------------------
 
 ; ------------------------------------------------
 putPieceInTable:
-printMsg newLine
-call printTurn
-printMsg selectPositionToMoveMsg
-mov DX, offset bufferKeyBoard
-mov AH, 0Ah
-int 21h
-call takePositionKeyboard
-cmp DL, 00
-je error_position
-mov DL, Ah 
-mov AH, 00
-mov CL, 09
-mul CL
-mov AH, Dl
-add AL, Ah
-mov Bx, 0000
-mov BL, Al
-jmp putPiece
+
+printMsg newLine ;; Mostramos una nueva linea
+printMsg indicateNewPositionMsg ;; Mostramos el mensaje para que elija una nueva posición
+
+mov DX, offset bufferKeyBoard ;; Nos movemos a la dirección de memoria del buffer
+mov AH, 0a
+int 21
+
+printMsg newLine ;; Mostramos una nueva linea
+call takePositionKeyboard ;; Solicitamos al usuario que ingrese una posición
+cmp DL, 00 ;; Comparamos si todo salio bien, mediante la comparacion de Dl, ya que en take position le asignamos un valor distinto de 00 para indicar que todo salio bien
+je error_position ;; Si es igual a 00, entonces hubo un error y volvemos al menu principal
+mov DL, Ah ;; Le cargamos a Dl el valor de AH
+mov AH, 00 ;; A ah le asignamos el valor 00
+mov CL, 09 ;; A cl le asignamos el valor 09
+mul CL ;; Multiplicamos ah por cl
+mov AH, Dl ;; A ah le asignamos el valor de Dl
+add AL, Ah ;; Sumamos al con ah
+mov Bx, 0000 ;; A bx le asignamos el valor 0000
+mov BL, Al ;; A bl le asignamos el valor de al
+jmp putPiece ;; Llamamos a la función para colocar la pieza en el tablero
 
 error_position:
 printMsg invalidEntry
-jmp start_sequence
+printMsg newLine
+jmp mainMenu
 
 putPiece:
 mov DX, offset table
@@ -352,7 +360,7 @@ add BX, Dx
 mov CH, [playerTurn]
 cmp CH, 00
 je putPieceW
-jmp PutPieceB
+jmp putPieceB
 
 ; ------------------------------------------------
 putPieceW:
@@ -360,7 +368,7 @@ mov CH, 01
 mov [BX], CH
 ret
 
-PutPieceB:
+putPieceB:
 mov CH, 02
 mov [BX], CH
 ret
@@ -371,6 +379,29 @@ mov AH, 4Ch ; Cargamos a AH el codigo DOS para interrumpir el programa
 mov AL, 00 ; Cargamos a AL el valor 00
 int 21h ; Llamamos a la interrupción
 ;; El 4Ch sirve para terminar el programa
+
+saveCommandFound:
+		mov CX, 00
+		mov DX, offset fileTableName
+		mov AH, 3c
+		int 21
+		jc fin
+		mov [handle], AX
+		mov BX, AX
+		mov DX, offset newLine
+		mov AH, 09
+		int 21
+		mov DX, offset fileCreatedMsg
+		mov AH, 09
+		int 21
+		mov CX, 51
+		mov DX, offset table
+		mov AH, 40
+		int 21
+		jmp mainMenu
+		mov AH, 3e
+		int 21
+ret
 
 ; ------------------------------------------------
 ;; Cambiamos los valores de nuestra tabla de juego
@@ -398,20 +429,20 @@ mov AL, [BX] ;; Cargamos ese bit a AL
 cmp AL, 02 ;; Si el bit es de tamaño 2, entonces es correcto para asignar una posición
 jne errorPosition ;; De lo contrario mostramos que tira error
 inc BX ;; Incrementamos en 1 para acceder al primer caracter de la cadena, en este caso sería, la columna
-mov AL, [BX] ;; Cargamos el valor de la fila a AL
-cmp AL, 41 ;; Comparamos mediante jl y jg si el valor de la fila es menor o mayor a A e I respectivamente
+mov AH, [BX] ;; Cargamos el valor de la fila a AL
+cmp AH, 41 ;; Comparamos mediante jl y jg si el valor de la fila es menor o mayor a A e I respectivamente
 jl errorPosition
-cmp AL, 49 ;; numero ascii de I
+cmp AH, 49 ;; numero ascii de I
 jg errorPosition ;; mostramos error si es mayor
-sub AL, 41 ;; Restamos 41 a AL para que el valor de AL sea el numero de la fila
-mov AH, AL ;;  Cargamos a Ah el valor de Al para que quede en la posición de la fila
+sub AH, 41 ;; Restamos 41 a AL para que el valor de AL sea el numero de la fila
+mov AL, AH ;;  Cargamos a Ah el valor de Al para que quede en la posición de la fila
 inc BX ;; Incrementamos en 1 para acceder al segundo caracter de la cadena, en este caso sería, la fila
-mov AL, [BX] ;; Cargamos el valor de la fila a AL
-cmp AL, 31 ;; Comparamos mediante jl y jg si el valor de la fila es menor o mayor a 1 y 9 respectivamente
+mov AH, [BX] ;; Cargamos el valor de la fila a AL
+cmp AH, 31 ;; Comparamos mediante jl y jg si el valor de la fila es menor o mayor a 1 y 9 respectivamente
 jl errorPosition
-cmp AL, 39
+cmp AH, 39
 jg errorPosition
-sub AL, 31
+sub AH, 31
 mov DL, 0ff ;; Cargamos a DL el valor de 0ff para indicar que la entrada fue valida
 ret
 
@@ -470,10 +501,36 @@ printPieceW:
 macroPrintPiece pieceW
 printMsg newLine
 ret
-
 ;; ------------------------------------------------
-
 errorPosition: mov DL, 00
+ret
+
+; ------------------------------------------------
+;; En esta seccion vamos a soliticar al usuario que ingrese la posicion de la pieza que desea mover
+requestPieceToMove:
+printMsg newLine ;; Imprimimos un salto de linea
+printMsg selectPositionToMoveMsg ;; Mostramos el mensaje para elegir la posicion de la pieza a mover
+mov DX, offset bufferKeyBoard
+mov AH, 0a
+int 21
+call takePositionKeyboard
+cmp DL, 00
+je errorPosition
+mov DL, AH
+mov ah, 00
+mov cl, 09
+mul CL
+mov AH, DL
+add AL, AH
+mov Bx, 0000
+mov BL, Al
+
+deletePiece:
+mov DX, offset table
+add BX, Dx
+mov CH, [playerTurn]
+mov CH, 0
+mov [BX], CH
 ret
 
 main ENDP
