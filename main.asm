@@ -327,7 +327,6 @@ ret
 
 ; ------------------------------------------------
 putPieceInTable:
-
 printMsg newLine ;; Mostramos una nueva linea
 printMsg indicateNewPositionMsg ;; Mostramos el mensaje para que elija una nueva posición
 
@@ -339,6 +338,7 @@ printMsg newLine ;; Mostramos una nueva linea
 call takePositionKeyboard ;; Solicitamos al usuario que ingrese una posición
 cmp DL, 00 ;; Comparamos si todo salio bien, mediante la comparacion de Dl, ya que en take position le asignamos un valor distinto de 00 para indicar que todo salio bien
 je error_position ;; Si es igual a 00, entonces hubo un error y volvemos al menu principal
+
 mov DL, Ah ;; Le cargamos a Dl el valor de AH
 mov AH, 00 ;; A ah le asignamos el valor 00
 mov CL, 09 ;; A cl le asignamos el valor 09
@@ -352,7 +352,7 @@ jmp putPiece ;; Llamamos a la función para colocar la pieza en el tablero
 error_position:
 printMsg invalidEntry
 printMsg newLine
-jmp mainMenu
+jmp putPieceInTable
 
 putPiece:
 mov DX, offset table
@@ -373,6 +373,11 @@ mov CH, 02
 mov [BX], CH
 ret
 
+putEmptyPiece:
+mov CH, 00
+mov [BX], CH
+ret
+
 exit: 
 printMsg exitMsg ; Imprimimos el mensaje de salida
 mov AH, 4Ch ; Cargamos a AH el codigo DOS para interrumpir el programa
@@ -385,7 +390,7 @@ saveCommandFound:
 		mov DX, offset fileTableName
 		mov AH, 3c
 		int 21
-		jc fin
+		jc exit
 		mov [handle], AX
 		mov BX, AX
 		mov DX, offset newLine
@@ -501,6 +506,7 @@ printPieceW:
 macroPrintPiece pieceW
 printMsg newLine
 ret
+
 ;; ------------------------------------------------
 errorPosition: mov DL, 00
 ret
@@ -510,17 +516,22 @@ ret
 requestPieceToMove:
 printMsg newLine ;; Imprimimos un salto de linea
 printMsg selectPositionToMoveMsg ;; Mostramos el mensaje para elegir la posicion de la pieza a mover
+
 mov DX, offset bufferKeyBoard
 mov AH, 0a
 int 21
+
+printMsg newLine
 call takePositionKeyboard
+
 cmp DL, 00
-je errorPosition
+je requestPieceToMove
+
 mov DL, AH
-mov ah, 00
+mov AH, 00
 mov cl, 09
-mul CL
-mov AH, DL
+mul CL ;; Multiplicamos el valor de la fila por 9 para obtener la posicion en la tabla
+mov AH, DL 
 add AL, AH
 mov Bx, 0000
 mov BL, Al
@@ -528,8 +539,7 @@ mov BL, Al
 deletePiece:
 mov DX, offset table
 add BX, Dx
-mov CH, [playerTurn]
-mov CH, 0
+mov CH, 00
 mov [BX], CH
 ret
 
