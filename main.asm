@@ -147,7 +147,7 @@ wait_enter: ; Esperamos a que se presione ENTER para continuar
 start_game: ; Función para iniciar el juego
             printMsg turnMsg ; Imprimimos el mensaje de inicio de juego
             call generate_random_number ; Llamamos a la función para generar un número aleatorio
-            jmp mainMenu ; Llamamos a la función para imprimir el menú principal
+            jmp start_sequence
 
 upload_game:
 printMsg t2 ;; Esta funcion servira para cargar una partida guardada
@@ -205,6 +205,7 @@ ret
 ; ------------------------------------------------
 
 
+; ------------------------------------------------
 ;; Con esta subrutina, indicamos que el jugador A es el que inicia el juego
 set_player_A:
 ;; Iniciamos la secuencia de impresión del tablero
@@ -215,7 +216,7 @@ printMsg displayTurn ; Imprimimos el mensaje de que es el turno del jugador
 printMsg playerA ; Imprimimos el mensaje de que es el turno del jugador A
 call generate_piece_random ; Llamamos a la función para generar un número aleatorio
 call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
-jmp start_sequence ; Llamamos a la función para iniciar la secuencia de impresión del tablero
+ret
 
 set_player_B:
 ;; Iniciamos la secuencia de impresión del tablero
@@ -227,6 +228,8 @@ printMsg playerB ; Imprimimos el mensaje de que es el turno del jugador B
 call generate_piece_random ; Llamamos a la función para generar un número aleatorio
 call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
 ;; Iniciamos la secuencia de impresión del tablero
+ret
+; ------------------------------------------------
 
 start_sequence:
     printMsg colTableStr ; Imprimimos la primera linea del tablero
@@ -235,7 +238,7 @@ start_sequence:
     call printTable ; Llamamos a la función para imprimir el tablero
     call wait_enter ; Llamamos a la función para esperar a que se presione ENTER
     call putPieceInTable ; Solicitamos al usuario que coloque una pieza en el tablero
-    jmp mainMenu
+    jmp start_sequence
 
 printTable:
     mov DI, 00 ; Cargamos a DI el valor 00
@@ -301,10 +304,21 @@ mov AL, 40 ;; Cargamos a AL el valor de la letra A
 mov BX, offset nameLine ;; Cargamos a BX la dirección de memoria de la variable nameLine
 add BX , 03 ;; Sumamos 3 a BX para que apunte a la posición de la letra que corresponde
 mov [BX], AL ;; Cargamos a la posición de memoria de BX el valor de AL
+;; En esta seccion cambiamos el turno de 0 a 1 o de 1 a 0
+
+;; ----------------------------------------------------------------
 mov AH, 01 
 mov AL, [playerTurn]
 sub AH, AL
 mov [playerTurn], AH
+;; ----------------------------------------------------------------
+
+;; ----------------------------------------------------------------
+mov CH, 01
+mov CL, [pieceTurn]
+sub CH, CL
+mov [pieceTurn], CH
+;; ----------------------------------------------------------------
 ret
 
 ; ------------------------------------------------
